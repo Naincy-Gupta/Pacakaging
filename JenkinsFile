@@ -1,0 +1,135 @@
+library 'reference-pipeline'
+
+pipeline{
+ agent {
+        docker {
+            image 'nexus2.prod.cloud.fedex.com:8444/fdx/jenkins/default-tools-image'
+            label 'docker'
+        }
+    }
+
+	options {
+		buildDiscarder(logRotator(numToKeepStr: '20'))
+	}
+
+	tools {
+		maven 'Maven 3.3.9'
+	}
+
+	stages
+	{
+		stage('initializing variables')
+		{
+			steps
+			{
+				script
+				{
+					echo "Release: ${params.isRelease}"
+					if("${params.isRelease}"=="true")
+					{
+						echo "Setting variables for release"
+						
+						branch="master"
+						pathOfMetadataXMLPeripheralServer='https://nexus.prod.cloud.fedex.com:8443/nexus/repository/release/eai3530951/com/fedex/peripherals/rtl-peripherals/maven-metadata.xml'
+						pathOfMetadataXMLPeripheralServerInstaller='https://nexus.prod.cloud.fedex.com:8443/nexus/repository/release/eai3530951/com/fedex/peripherals/rtl-peripheral-installer/maven-metadata.xml'
+						NexusRepoId="release-repo"
+						NexusRepoName="release-repo"
+						NexusRepoURL="https://nexus.prod.cloud.fedex.com:8443/nexus/repository/release/"
+					}
+					else
+					{
+						echo "Setting variables for snapshot"
+						
+						branch="develop"
+						pathOfMetadataXMLPeripheralServer='https://nexus.prod.cloud.fedex.com:8443/nexus/repository/snapshot/eai3530951/com/fedex/peripherals/rtl-peripherals/maven-metadata.xml'
+						pathOfMetadataXMLPeripheralServerInstaller='https://nexus.prod.cloud.fedex.com:8443/nexus/repository/snapshot/eai3530951/com/fedex/peripherals/rtl-peripheral-installer/maven-metadata.xml'
+						NexusRepoId="snapshot-repo"
+						NexusRepoName="snapshot-repo"
+						NexusRepoURL="https://nexus.prod.cloud.fedex.com:8443/nexus/repository/snapshot"
+					}
+					echo "branch: ${branch}"
+					echo "pathOfMetadataXMLPeripheralServer: ${pathOfMetadataXMLPeripheralServer}"
+					echo "pathOfMetadataXMLPeripheralServerInstaller: ${pathOfMetadataXMLPeripheralServerInstaller}"
+					echo "NexusRepoId: ${NexusRepoId}"
+					echo "NexusRepoName: ${NexusRepoName}"
+					echo "NexusRepoURL: ${NexusRepoURL}"					
+				}
+			}
+		}
+		
+		stage('checkout')
+		{
+			steps
+			{
+				checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'LocalBranch', localBranch: "${branch}"], [$class: 'WipeWorkspace']], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '49da154a-96fe-49dd-9dc1-1300a07dc02a', url: 'git@gitlab.prod.fedex.com:APP3530951/peripheral-server-packaging.git']]])
+			}
+		}
+		
+		stage('Determining Versions of artifacts to be fetched')
+		{
+			steps
+			{
+				script
+				{
+					peripheralServerArtifactVersionToUse="${params.peripheralServerArtifactVersion}"
+					peripheralServerInstallerVersionToUse="${params.peripheralServerInstallerVersion}"
+					if("${peripheralServerArtifactVersionToUse}"=="LATEST")
+					{
+						peripheralServerArtifactVersionToUse=sh (
+																	script: "curl -s \"$pathOfMetadataXMLPeripheralServer\" | grep \"<version>.*</version>\" | uniq | sort -n | tail -n1 | sed -e \"s#\\(.*\\)\\(<version>\\)\\(.*\\)\\(</version>\\)\\(.*\\)#\\3#g\"",
+																	returnStdout: true
+																).trim()
+					}
+					if("${peripheralServerInstallerVersionToUse}"=="LATEST")
+					{
+						peripheralServerInstallerVersionToUse=sh (
+																	script: "curl -s \"$pathOfMetadataXMLPeripheralServerInstaller\" | grep \"<version>.*</version>\" | uniq | sort -n | tail -n1 | sed -e \"s#\\(.*\\)\\(<version>\\)\\(.*\\)\\(</version>\\)\\(.*\\)#\\3#g\"",
+																	returnStdout: true
+																).trim()
+					}
+					echo "Peripheral Server Artifact Version: ${peripheralServerArtifactVersionToUse}"
+					echo "Peripheral Server Installer Version:  ${peripheralServerInstallerVersionToUse}"
+					msg=""
+					if("${peripheralServerArtifactVersionToUse}"==""||"${peripheralServerInstallerVersionToUse}"=="")
+					{
+						msg=". Pipeline failed as either of the version is not available : Peripheral Server Artifact Version: \"${peripheralServerArtifactVersionToUse}\" , Peripheral Server Installer Version: \"${peripheralServerInstallerVersionToUse}\" "
+						error("${msg}")
+					}
+				}
+			}
+		}
+		
+		stage('Prepare and upload the package to Nexus')
+		{
+			steps
+			{
+				withCredentials([usernamePassword(credentialsId: 'peripheral-server-nexus-jenkins-deployment', passwordVariable: 'NEXUS_PASSWORD', usernameVariable: 'NEXUS_USERNAME')]) 
+				{
+					script
+					{
+						if("${params.isRelease}"=="true")
+						{
+							sshagent(credentials: ['49da154a-96fe-49dd-9dc1-1300a07dc02a'], ignoreMissing: true)
+							{
+								sh "mvn -e release:clean release:prepare --batch-mode org.apache.maven.plugins:maven-release-plugin:2.5.3:perform -s settings.xml -Dtransitive=false -DNEXUS.USER=$NEXUS_USERNAME -DNEXUS.PASSWORD=$NEXUS_PASSWORD \"-Darguments=-Drtl-peripherals.version=${peripheralServerArtifactVersionToUse} -Dperipheral-server-installer.version=${peripheralServerInstallerVersionToUse} -Dperipherals.package.repositoryId=${NexusRepoId} -Dperipherals.package.repository.name=${NexusRepoName} -Dperipherals.package.repository.url=${NexusRepoURL}\""
+							}
+						}
+						else
+						{
+							sh "mvn -e deploy -s settings.xml -Dtransitive=false -DNEXUS.USER=$NEXUS_USERNAME -DNEXUS.PASSWORD=$NEXUS_PASSWORD -Drtl-peripherals.version=${peripheralServerArtifactVersionToUse} -Dperipheral-server-installer.version=${peripheralServerInstallerVersionToUse} -Dperipherals.package.repositoryId=${NexusRepoId} -Dperipherals.package.repository.name=${NexusRepoName} -Dperipherals.package.repository.url=${NexusRepoURL}"
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	post {
+		failure{    // notify users when the Pipeline fails
+			mail(to: params.errorEmail, subject: "Jenkins RTL-Peripheral Server Packaging Pipeline Failure Notice", body: "**************** SOMETHING WENT WRONG **********************\n\nHi\n\nThe Application Continuous Delivery pipeline for RTL-Peripheral Server Packaging failed. ${msg} \n\nThe Link to the failed Jenkins pipeline can be found here: \n\n${env.BUILD_URL} \n\nPlease navigate to the above mentioned Jenkins job to see the logs.\n\nThanks!")
+		}
+		success{    // notify users when the Pipeline succeeds
+			mail(to: params.successEmail, subject: "Jenkins RTL-Peripheral Server Packaging Pipeline Executed Successfully", body: "**************** Package Publish Successful **********************\n\nHi\n\nThe Application Continuous Delivery pipeline for RTL-Peripheral Server Packaging is Successfully done. \n\nThe Link to the Successful Jenkins pipeline can be found here: \n\n${env.BUILD_URL} \n\nPlease navigate to the above mentioned Jenkins job to see the logs.\n\nThanks!")
+		}
+	}
+}

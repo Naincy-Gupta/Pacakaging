@@ -1,0 +1,20 @@
+target
+.project
+.classpath
+.settings
+.metadata/
+.springBeans
+.factorypath
+
+# intellij files
+*.iws
+*.iml
+*.ipr
+*.ids
+*/*.iws
+*/*.ipr
+.idea/
+.ideaDataSources/
+dataSources/
+*.exec
+*.log

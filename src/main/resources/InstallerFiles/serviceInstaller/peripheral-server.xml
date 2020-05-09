@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service>
+    <id>rtl-peripherals</id>
+    <name>Peripheral Server</name>
+    <description>This service runs the Peripheral Server</description>
+    <executable>java</executable>
+    <env name="PERIPHERAL-SERVER-INSTALLED-LOCATION" value="C:\peripheral-server"/>
+    <env name="PERIPHERAL-SERVER-ACTIVE-PROFILE" value="peripheral-server,peripheral-service"/>
+    <env name="PERIPHERAL-SERVER-PORT" value="8080"/>
+    <env name="PERIPHERAL-SERVER-JAR" value="rtl-peripherals-1.0.0-SNAPSHOT.jar"/>
+    <arguments>-jar "%PERIPHERAL-SERVER-INSTALLED-LOCATION%\\lib\%PERIPHERAL-SERVER-JAR%"  --server.port=%PERIPHERAL-SERVER-PORT% --spring.profiles.active=%PERIPHERAL-SERVER-ACTIVE-PROFILE%</arguments>
+    <log mode="none">
+    </log>
+    <logpath>%PERIPHERAL-SERVER-INSTALLED-LOCATION%\\logs</logpath>
+    <startmode>Automatic</startmode>                
+</service>
+
+

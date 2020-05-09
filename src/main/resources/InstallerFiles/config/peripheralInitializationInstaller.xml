@@ -1,0 +1,62 @@
+<PeripheralProject name="Peripheral-Server-0.0.1"
+	description="Peripheral Server Installer">
+	<PeripheralAction
+		name="PeripheralUpdatedJarNameInXmlAction"
+		description="This action is used to update jar name in peripheral-server.xml"
+		class="com.fedex.peripherals.installer.actions.PeripheralUpdatedJarNameInXmlAction"
+		rollback="true" active="true" exitOnFail="true"
+		peripheralSoftwareUpdatePhase="BUIDIDENTIFICATIONPHASE"
+		retryCount="1">
+		<PeripheralProperty propname="peripheralServerLibPath"
+			propvalue="${peripheral.installer.installerLocation}\\lib">
+		</PeripheralProperty>
+		<PeripheralProperty propname="peripheralServerXmlPath"
+			propvalue="${peripheral.installer.installerLocation}\\serviceInstaller\\peripheral-server.xml">
+		</PeripheralProperty>
+	</PeripheralAction>
+	<PeripheralAction
+		name="PeripheralUpdatePortInstalledLocProfileInXmlAction"
+		description="This action is used to update port profile and installed location in peripheral-server.xml "
+		class="com.fedex.peripherals.installer.actions.PeripheralUpdatePortInstalledLocProfileInXmlAction"
+		rollback="true" active="true" exitOnFail="true"
+		peripheralSoftwareUpdatePhase="BUIDIDENTIFICATIONPHASE"
+		retryCount="1">
+		<PeripheralProperty propname="peripheralServerXmlPath"
+			propvalue="${peripheral.installer.installerLocation}\\serviceInstaller\\peripheral-server.xml">
+		</PeripheralProperty>
+	</PeripheralAction>
+	<PeripheralAction
+		name="PeripheralInstallationInitializationAction"
+		description="This action initializes the installation process"
+		class="com.fedex.peripherals.installer.actions.PeripheralInstallationInitializationAction"
+		rollback="true" active="true" exitOnFail="true"
+		peripheralSoftwareUpdatePhase="BUIDIDENTIFICATIONPHASE"
+		retryCount="1">
+		<PeripheralProperty propname="serviceId"
+			propvalue="rtl-peripherals">
+		</PeripheralProperty>
+		<PeripheralProperty propname="jarLoc"
+			propvalue="${peripheral.installer.installerJarLocation}">
+		</PeripheralProperty>
+		<PeripheralProperty propname="fullBuildXmlLocInJar"
+			propvalue="peripheralinstallerscriptfullbuild.xml">
+		</PeripheralProperty>
+		<PeripheralProperty propname="incrementalBuildXmlLocInJar"
+			propvalue="peripheralinstallerscriptincrementbuild.xml">
+		</PeripheralProperty>
+		<PeripheralProperty propname="xmlDestPath"
+			propvalue="${peripheral.installer.installerScriptLocation}">
+		</PeripheralProperty>
+		<PeripheralProperty propname="jarName"
+			propvalue="rtl-peripheral-installer">
+		</PeripheralProperty>
+	</PeripheralAction>
+	<PeripheralAction
+		name="PeripheralEmailNotificationAction"
+		description="This action sends the email notification"
+		class="com.fedex.peripherals.installer.actions.PeripheralEmailNotificationAction"
+		rollback="true" active="true" exitOnFail="true"
+		peripheralSoftwareUpdatePhase="REPORTINGPHASE"
+		retryCount="1">
+	</PeripheralAction>	
+</PeripheralProject>
